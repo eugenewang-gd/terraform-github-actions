@@ -20,6 +20,9 @@ env:
   ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
   ARM_USE_CLI: "false"
+  ARM_USE_MSI: "false"
+  ARM_USE_OIDC: "false"
+  AZURE_HTTP_USER_AGENT: "github-actions"
 
 jobs:
   terraform-plan:
@@ -33,6 +36,8 @@ jobs:
       ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
       ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
       ARM_USE_CLI: "false"
+      ARM_USE_MSI: "false"
+      ARM_USE_OIDC: "false"
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
 
@@ -44,11 +49,15 @@ jobs:
     # Debug: Check environment variables (without exposing secrets)
     - name: Debug Environment Variables
       run: |
-        echo "ARM_CLIENT_ID is set: $([[ -n "$ARM_CLIENT_ID" ]] && echo "YES" || echo "NO")"
-        echo "ARM_CLIENT_SECRET is set: $([[ -n "$ARM_CLIENT_SECRET" ]] && echo "YES" || echo "NO")"
-        echo "ARM_SUBSCRIPTION_ID is set: $([[ -n "$ARM_SUBSCRIPTION_ID" ]] && echo "YES" || echo "NO")"
-        echo "ARM_TENANT_ID is set: $([[ -n "$ARM_TENANT_ID" ]] && echo "YES" || echo "NO")"
+        echo "ARM_CLIENT_ID is set: $([[ -n "$ARM_CLIENT_ID" ]] && echo "YES (length: ${#ARM_CLIENT_ID})" || echo "NO")"
+        echo "ARM_CLIENT_SECRET is set: $([[ -n "$ARM_CLIENT_SECRET" ]] && echo "YES (length: ${#ARM_CLIENT_SECRET})" || echo "NO")"
+        echo "ARM_SUBSCRIPTION_ID is set: $([[ -n "$ARM_SUBSCRIPTION_ID" ]] && echo "YES (length: ${#ARM_SUBSCRIPTION_ID})" || echo "NO")"
+        echo "ARM_TENANT_ID is set: $([[ -n "$ARM_TENANT_ID" ]] && echo "YES (length: ${#ARM_TENANT_ID})" || echo "NO")"
         echo "ARM_USE_CLI: $ARM_USE_CLI"
+        echo "ARM_USE_MSI: $ARM_USE_MSI"
+        echo "ARM_USE_OIDC: $ARM_USE_OIDC"
+        echo "Current directory: $(pwd)"
+        echo "Azure CLI installed: $(which az || echo 'NOT FOUND')"
 
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform
@@ -56,9 +65,19 @@ jobs:
       with:
         terraform_wrapper: false
 
-    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
+    # Explicitly disable Azure CLI to prevent fallback
+    - name: Disable Azure CLI
+      run: |
+        # Remove az command to prevent fallback
+        sudo rm -f /usr/bin/az /usr/local/bin/az 2>/dev/null || true
+        # Verify it's gone
+        which az && echo "WARNING: Azure CLI still found" || echo "Azure CLI successfully disabled"
+
+    # Initialize a new or existing Terraform working directory
     - name: Terraform Init
-      run: terraform init
+      run: |
+        echo "Starting terraform init..."
+        terraform init -no-color
 
     # Checks that all Terraform configuration files adhere to a canonical format
     # Will fail the build if not
