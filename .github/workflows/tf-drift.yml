@@ -17,15 +17,25 @@ env:
   ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
   ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
   ARM_USE_CLI: "false"
+  ARM_USE_MSI: "false"
+  ARM_USE_OIDC: "false"
+  AZURE_HTTP_USER_AGENT: "github-actions"
 
 jobs:
   terraform-plan:
     name: 'Terraform Plan'
     runs-on: ubuntu-latest
+    environment: Azure  # Add this line to access the Azure environment secrets
     env:
       #this is needed since we are running terraform with read-only permissions
       ARM_SKIP_PROVIDER_REGISTRATION: true
+      ARM_CLIENT_ID: "${{ secrets.AZURE_CLIENT_ID }}"
+      ARM_CLIENT_SECRET: "${{ secrets.AZURE_CLIENT_SECRET }}"
+      ARM_SUBSCRIPTION_ID: "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+      ARM_TENANT_ID: "${{ secrets.AZURE_TENANT_ID }}"
       ARM_USE_CLI: "false"
+      ARM_USE_MSI: "false"
+      ARM_USE_OIDC: "false"
     outputs:
       tfplanExitCode: ${{ steps.tf-plan.outputs.exitcode }}
 
@@ -33,6 +43,17 @@ jobs:
     # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
+
+    # Debug: Check environment variables (without exposing secrets)
+    - name: Debug Environment Variables
+      run: |
+        echo "ARM_CLIENT_ID is set: $([[ -n "$ARM_CLIENT_ID" ]] && echo "YES (length: ${#ARM_CLIENT_ID})" || echo "NO")"
+        echo "ARM_CLIENT_SECRET is set: $([[ -n "$ARM_CLIENT_SECRET" ]] && echo "YES (length: ${#ARM_CLIENT_SECRET})" || echo "NO")"
+        echo "ARM_SUBSCRIPTION_ID is set: $([[ -n "$ARM_SUBSCRIPTION_ID" ]] && echo "YES (length: ${#ARM_SUBSCRIPTION_ID})" || echo "NO")"
+        echo "ARM_TENANT_ID is set: $([[ -n "$ARM_TENANT_ID" ]] && echo "YES (length: ${#ARM_TENANT_ID})" || echo "NO")"
+        echo "ARM_USE_CLI: $ARM_USE_CLI"
+        echo "ARM_USE_MSI: $ARM_USE_MSI"
+        echo "ARM_USE_OIDC: $ARM_USE_OIDC"
 
     # Install the latest version of the Terraform CLI
     - name: Setup Terraform
@@ -42,7 +63,9 @@ jobs:
 
     # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
-      run: terraform init
+      run: |
+        echo "Starting terraform init..."
+        terraform init -no-color
 
     # Generates an execution plan for Terraform
     # An exit code of 0 indicated no changes, 1 a terraform failure, 2 there are pending changes.
