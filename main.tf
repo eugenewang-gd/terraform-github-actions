@@ -25,4 +25,9 @@ provider "azurerm" {
 resource "azurerm_resource_group" "rg-aks" {
   name     = var.resource_group_name
   location = var.location
+
+  tags = {
+    dd_monitor  = "false"
+    environment = "sb"
+  }
 }
