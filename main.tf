@@ -31,3 +31,30 @@ resource "azurerm_resource_group" "rg-aks" {
     environment = "sb"
   }
 }
+
+# Add this to your main.tf if you want Terraform to manage the WAF policy
+resource "azurerm_web_application_firewall_policy" "waf_policy" {
+  name                = "wafpocrule1"
+  resource_group_name = azurerm_resource_group.rg-aks.name
+  location            = azurerm_resource_group.rg-aks.location
+
+  policy_settings {
+    enabled                     = true
+    mode                       = "Prevention"
+    request_body_check         = true
+    file_upload_limit_in_mb    = 100
+    max_request_body_size_in_kb = 128
+  }
+
+  managed_rules {
+    managed_rule_set {
+      type    = "OWASP"
+      version = "3.2"
+    }
+  }
+
+  tags = {
+    dd_monitor  = "false"
+    environment = "sb"
+  }
+}
